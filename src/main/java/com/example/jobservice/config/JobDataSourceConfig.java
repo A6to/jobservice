@@ -1,0 +1,65 @@
+package com.example.jobservice.config;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.sql.DataSource;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.transaction.PlatformTransactionManager;
+
+import com.zaxxer.hikari.HikariDataSource;
+
+@Configuration
+@EnableJpaRepositories(
+        basePackages = "com.example.jobservice.job.repository",
+        entityManagerFactoryRef = "jobEntityManagerFactory",
+        transactionManagerRef = "jobTransactionManager"
+)
+public class JobDataSourceConfig {
+
+    @Bean
+    public DataSource jobDataSource(
+            @Value("${spring.datasource.job.url}") String url,
+            @Value("${spring.datasource.job.username}") String username,
+            @Value("${spring.datasource.job.password}") String password,
+            @Value("${spring.datasource.job.driver-class-name}") String driverClassName) {
+
+        HikariDataSource dataSource = new HikariDataSource();
+        dataSource.setJdbcUrl(url);
+        dataSource.setUsername(username);
+        dataSource.setPassword(password);
+        dataSource.setDriverClassName(driverClassName);
+        return dataSource;
+    }
+
+    @Bean(name = "jobEntityManagerFactory")
+    public LocalContainerEntityManagerFactoryBean jobEntityManagerFactory(
+            @Qualifier("jobDataSource") DataSource jobDataSource) {
+
+        LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+        em.setDataSource(jobDataSource);
+        em.setPackagesToScan("com.example.jobservice.job.model");
+        em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("hibernate.hbm2ddl.auto", "update");
+        properties.put("hibernate.show_sql", true);
+        em.setJpaPropertyMap(properties);
+
+        return em;
+    }
+
+    @Bean(name = "jobTransactionManager")
+    public PlatformTransactionManager jobTransactionManager(
+            @Qualifier("jobEntityManagerFactory") LocalContainerEntityManagerFactoryBean jobEntityManagerFactory) {
+        return new JpaTransactionManager(jobEntityManagerFactory.getObject());
+    }
+}
